@@ -390,10 +390,10 @@ canvas#gameCanvas {
 ">⚙️</button>
 
 <!-- TOUCH CONTROLS (phone only, shown during gameplay) -->
-<div id="touchControls" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:250;padding:10px 16px 14px;display:none;justify-content:space-between;align-items:center;pointer-events:none;">
-  <button id="touchLeft"  style="pointer-events:all;width:72px;height:72px;border-radius:50%;background:rgba(0,120,255,0.22);border:2px solid rgba(0,180,255,0.5);color:#aaddff;font-size:1.8rem;cursor:pointer;user-select:none;-webkit-user-select:none;">◀</button>
-  <button id="touchFire"  style="pointer-events:all;width:72px;height:72px;border-radius:50%;background:rgba(255,200,0,0.22);border:2px solid rgba(255,220,0,0.5);color:#ffee88;font-size:1.1rem;font-weight:700;cursor:pointer;user-select:none;-webkit-user-select:none;">FIRE</button>
-  <button id="touchRight" style="pointer-events:all;width:72px;height:72px;border-radius:50%;background:rgba(0,120,255,0.22);border:2px solid rgba(0,180,255,0.5);color:#aaddff;font-size:1.8rem;cursor:pointer;user-select:none;-webkit-user-select:none;">▶</button>
+<div id="touchControls" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;padding:10px 16px 18px;justify-content:space-between;align-items:center;">
+  <button id="touchLeft"  style="width:80px;height:80px;border-radius:50%;background:rgba(0,120,255,0.35);border:2px solid rgba(0,180,255,0.7);color:#aaddff;font-size:2rem;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;">◀</button>
+  <button id="touchFire"  style="width:80px;height:80px;border-radius:50%;background:rgba(255,200,0,0.35);border:2px solid rgba(255,220,0,0.7);color:#ffee88;font-size:1.1rem;font-weight:700;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;">FIRE</button>
+  <button id="touchRight" style="width:80px;height:80px;border-radius:50%;background:rgba(0,120,255,0.35);border:2px solid rgba(0,180,255,0.7);color:#aaddff;font-size:2rem;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;">▶</button>
 </div>
 
 <!-- PAUSE OVERLAY -->
@@ -1726,39 +1726,36 @@ window.addEventListener('resize', applyResponsiveLayout);
 
 // Touch control state
 const touchKeys = { left:false, right:false, fire:false };
-let touchFireInterval = null;
 
 function setupTouchControls(){
-  // Always register listeners — they only activate when isPhoneMode() is true
-  const tcEl = document.getElementById('touchControls');
-
-  function startLeft(e){ e.preventDefault(); touchKeys.left=true; }
-  function stopLeft(e){  e.preventDefault(); touchKeys.left=false; }
-  function startRight(e){ e.preventDefault(); touchKeys.right=true; }
-  function stopRight(e){  e.preventDefault(); touchKeys.right=false; }
-  function startFire(e){
-    e.preventDefault(); touchKeys.fire=true;
-    // Simulate spacebar held
-    keys[' ']=true;
-  }
-  function stopFire(e){
-    e.preventDefault(); touchKeys.fire=false;
-    keys[' ']=false;
-  }
-
   const btnL = document.getElementById('touchLeft');
   const btnR = document.getElementById('touchRight');
   const btnF = document.getElementById('touchFire');
 
-  btnL.addEventListener('touchstart', startLeft, {passive:false});
-  btnL.addEventListener('touchend',   stopLeft,  {passive:false});
-  btnL.addEventListener('touchcancel',stopLeft,  {passive:false});
-  btnR.addEventListener('touchstart', startRight,{passive:false});
-  btnR.addEventListener('touchend',   stopRight, {passive:false});
-  btnR.addEventListener('touchcancel',stopRight, {passive:false});
-  btnF.addEventListener('touchstart', startFire, {passive:false});
-  btnF.addEventListener('touchend',   stopFire,  {passive:false});
-  btnF.addEventListener('touchcancel',stopFire,  {passive:false});
+  // Left button
+  btnL.addEventListener('touchstart', e=>{ e.preventDefault(); touchKeys.left=true;  }, {passive:false});
+  btnL.addEventListener('touchend',   e=>{ e.preventDefault(); touchKeys.left=false; }, {passive:false});
+  btnL.addEventListener('touchcancel',e=>{ e.preventDefault(); touchKeys.left=false; }, {passive:false});
+  // Also support mouse for desktop testing of phone mode
+  btnL.addEventListener('mousedown',  ()=>touchKeys.left=true);
+  btnL.addEventListener('mouseup',    ()=>touchKeys.left=false);
+  btnL.addEventListener('mouseleave', ()=>touchKeys.left=false);
+
+  // Right button
+  btnR.addEventListener('touchstart', e=>{ e.preventDefault(); touchKeys.right=true;  }, {passive:false});
+  btnR.addEventListener('touchend',   e=>{ e.preventDefault(); touchKeys.right=false; }, {passive:false});
+  btnR.addEventListener('touchcancel',e=>{ e.preventDefault(); touchKeys.right=false; }, {passive:false});
+  btnR.addEventListener('mousedown',  ()=>touchKeys.right=true);
+  btnR.addEventListener('mouseup',    ()=>touchKeys.right=false);
+  btnR.addEventListener('mouseleave', ()=>touchKeys.right=false);
+
+  // Fire button — sets keys[' '] so the existing cooldown logic in gameLoop handles it
+  btnF.addEventListener('touchstart', e=>{ e.preventDefault(); keys[' ']=true;  }, {passive:false});
+  btnF.addEventListener('touchend',   e=>{ e.preventDefault(); keys[' ']=false; }, {passive:false});
+  btnF.addEventListener('touchcancel',e=>{ e.preventDefault(); keys[' ']=false; }, {passive:false});
+  btnF.addEventListener('mousedown',  ()=>keys[' ']=true);
+  btnF.addEventListener('mouseup',    ()=>keys[' ']=false);
+  btnF.addEventListener('mouseleave', ()=>keys[' ']=false);
 }
 
 // Show/hide touch controls when game starts/ends
