@@ -361,6 +361,11 @@ canvas#gameCanvas {
       </div>
       <button class="btn btn-sm" id="switchUserBtn">🔄 Switch User</button>
       <button class="btn btn-sm btn-red" id="deleteAcctBtn">🗑 Delete Account</button>
+      <div style="border-top:1px solid #1a3a6a;margin-top:6px;padding-top:12px;">
+        <div style="color:#88aacc;font-size:0.82rem;margin-bottom:8px;">🎮 Control Mode</div>
+        <button class="btn btn-sm" id="toggleModeBtn" style="width:100%;"></button>
+        <div id="modeStatus" style="color:#556677;font-size:0.75rem;text-align:center;margin-top:6px;"></div>
+      </div>
     </div>
   </div>
   <button class="btn btn-sm" id="closeDeckBtn" style="margin-top:18px;">← Back</button>
@@ -1189,6 +1194,8 @@ function startGame(){
   gameCanvas=document.getElementById('gameCanvas');
   gameCtx=gameCanvas.getContext('2d');
   showScreen('__game__');
+  applyResponsiveLayout();
+  showTouchControls(true);
   initGameState();
   if(gameAnimFrame) cancelAnimationFrame(gameAnimFrame);
   triggerLevelUp(1, true);
@@ -1201,6 +1208,12 @@ function gameLoop(){
   lastGameTime=now;
 
   if(gs.state==='paused'||gs.state==='levelup'||gs.state==='gameover') return;
+
+  // Apply touch controls into keys before movement
+  if(isPhoneMode()){
+    if(touchKeys.left)  keys['ArrowLeft']=true;  else delete keys['ArrowLeft'];
+    if(touchKeys.right) keys['ArrowRight']=true; else delete keys['ArrowRight'];
+  }
 
   // Move ship
   if(keys['ArrowLeft'])  gs.ship.x=Math.max(25,gs.ship.x-SHIP_SPEED*dt);
@@ -1464,6 +1477,7 @@ function triggerLevelUp(level, isFirst){
 function triggerGameOver(){
   gs.state='gameover';
   if(gameAnimFrame){cancelAnimationFrame(gameAnimFrame);gameAnimFrame=null;}
+  showTouchControls(false);
   sfxGameOver();
   const isNew=gs.score>getUserHighscore();
   if(isNew){ setUserHighscore(gs.score); setTimeout(sfxNewHighScore,400); }
@@ -1495,6 +1509,7 @@ document.getElementById('goShowLbBtn').addEventListener('click',()=>showLeaderbo
 
 function restartGame(){
   showScreen('__game__');
+  showTouchControls(true);
   initGameState();
   if(gameAnimFrame) cancelAnimationFrame(gameAnimFrame);
   triggerLevelUp(1,true);
@@ -1576,6 +1591,7 @@ function showCommandDeck(returnTo){
   renderSkinGrid('deckSkinGrid',true);
   document.getElementById('musicVol').value=getUserMusicVol();
   document.getElementById('sfxVol').value=getUserSfxVol();
+  updateModeBtnLabel();
 }
 
 document.getElementById('musicVol').addEventListener('input',function(){
@@ -1594,6 +1610,22 @@ document.getElementById('switchUserBtn').addEventListener('click',()=>{
   document.getElementById('loginUser').value='';
   document.getElementById('loginPass').value='';
   document.getElementById('loginError').textContent='';
+});
+
+document.getElementById('toggleModeBtn').addEventListener('click',()=>{
+  forceTouchMode = !forceTouchMode;
+  updateModeBtnLabel();
+  // If game is active, immediately apply / remove touch controls
+  const gameActive = document.getElementById('gameWrap').style.display === 'flex';
+  if(gameActive){
+    showTouchControls(forceTouchMode);
+    applyResponsiveLayout();
+  }
+  // If switching to laptop mode, clear any stuck touch keys
+  if(!forceTouchMode){
+    touchKeys.left=false; touchKeys.right=false; touchKeys.fire=false;
+    keys[' ']=false;
+  }
 });
 
 document.getElementById('deleteAcctBtn').addEventListener('click',()=>{
@@ -1640,6 +1672,26 @@ function showLeaderboard(){
 // ============================================================
 const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.innerWidth <= 768);
 
+// Overridable mode — starts as auto-detected, can be toggled in Command Deck
+let forceTouchMode = isTouchDevice;
+
+function isPhoneMode(){ return forceTouchMode; }
+
+function updateModeBtnLabel(){
+  const btn = document.getElementById('toggleModeBtn');
+  const status = document.getElementById('modeStatus');
+  if(!btn) return;
+  if(forceTouchMode){
+    btn.textContent = '📱 Switch to Laptop Mode';
+    btn.className = 'btn btn-sm';
+    status.textContent = 'Currently: Phone / Touch controls active';
+  } else {
+    btn.textContent = '📱 Switch to Phone Mode';
+    btn.className = 'btn btn-sm btn-green';
+    status.textContent = 'Currently: Laptop / Keyboard controls active';
+  }
+}
+
 function switchRulesTab(tab){
   document.getElementById('rulesLaptop').style.display = tab==='laptop' ? '' : 'none';
   document.getElementById('rulesPhone').style.display  = tab==='phone'  ? '' : 'none';
@@ -1657,16 +1709,17 @@ switchRulesTab(isTouchDevice ? 'phone' : 'laptop');
 function applyResponsiveLayout(){
   const wrap = document.getElementById('canvas-wrap');
   const canvas = document.getElementById('gameCanvas');
-  if(isTouchDevice){
+  if(isPhoneMode()){
     const vw = window.innerWidth;
     const scale = Math.min(1, (vw - 8) / CANVAS_W);
     canvas.style.transformOrigin = 'top left';
     canvas.style.transform = `scale(${scale})`;
     wrap.style.width  = (CANVAS_W * scale) + 'px';
     wrap.style.height = (CANVAS_H * scale) + 'px';
-    // Show touch controls during gameplay
-    const tc = document.getElementById('touchControls');
-    if(document.getElementById('gameWrap').style.display === 'flex') tc.style.display='flex';
+  } else {
+    canvas.style.transform = '';
+    wrap.style.width = '';
+    wrap.style.height = '';
   }
 }
 window.addEventListener('resize', applyResponsiveLayout);
@@ -1676,7 +1729,7 @@ const touchKeys = { left:false, right:false, fire:false };
 let touchFireInterval = null;
 
 function setupTouchControls(){
-  if(!isTouchDevice) return;
+  // Always register listeners — they only activate when isPhoneMode() is true
   const tcEl = document.getElementById('touchControls');
 
   function startLeft(e){ e.preventDefault(); touchKeys.left=true; }
@@ -1708,17 +1761,8 @@ function setupTouchControls(){
   btnF.addEventListener('touchcancel',stopFire,  {passive:false});
 }
 
-// Hook touch left/right into the existing keys object
-const _origGameLoop = gameLoop;
-// Inject touch keys into movement — patch into keys before gameLoop reads them
-function applyTouchKeys(){
-  if(touchKeys.left)  keys['ArrowLeft']=true;  else if(!keys['ArrowLeft'])  delete keys['ArrowLeft'];
-  if(touchKeys.right) keys['ArrowRight']=true; else if(!keys['ArrowRight']) delete keys['ArrowRight'];
-}
-
 // Show/hide touch controls when game starts/ends
 function showTouchControls(show){
-  if(!isTouchDevice) return;
   document.getElementById('touchControls').style.display = show ? 'flex' : 'none';
 }
 
@@ -1787,6 +1831,7 @@ document.getElementById('confirmChangeUsernameBtn').addEventListener('click',()=
 // INIT
 // ============================================================
 function init(){
+  setupTouchControls();
   showScreen('introScreen');
   if(!sessionStorage.getItem('ss_intro_done')){
     startIntro();
